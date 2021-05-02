@@ -73,7 +73,7 @@ train <- UCDP[sample, ]
 test <- UCDP[!sample, ]
 
 
-# Erste bivariate und simple Modelle ---------------------------------
+# Erste bivariate und simple Modelle interpretieren ---------------------------------
 
 #Visualisierungen
 UCDP %>% 
@@ -110,6 +110,10 @@ exp(coef(fit))
 #Konfidenzintervalle
 confint(fit)
 exp(confint(fit))
+
+#Base R plot not working properly
+plot(as.numeric(as.character(train$recruitment)), as.numeric(as.character(train$war)))
+lines(as.numeric(as.character(train$recruitment)[1:length(fit$fitted.values)]), fit$fitted.values)
 
 #Bivariates Modell mit der numerischen Variable Konfliktdauer als UV
 fit0 <- glm(war ~ conflict_duration, data = train, family = "binomial")
@@ -155,7 +159,6 @@ yHat <- fit1$fitted.values > 0.5
 #tab <- table(train$war, yHat)
 #What should I do in order for them to have the same length?
 
-
 #Which Variable in a multivariate model is the most important/ most influential in 
 #predicting the response Variable War?
 summary(fit1)
@@ -172,7 +175,6 @@ list(fit = pscl::pR2(fit)["McFadden"],
      fit0 = pscl::pR2(fit0)["McFadden"],
      fit1 = pscl::pR2(fit1)["McFadden"])
 #Alle drei Modelle sind ziemlich schlecht. McFadden ist in Ordnung ab 0.2.
-
 
 #Residual Assessment
 library(broom)
@@ -194,7 +196,6 @@ fit1_data %>%
   top_n(5, .cooksd)
 #This means if we were to remove these observations (not recommended), the shape, 
 #location, and confidence interval of our logistic regression S-curve would likely shift.
-
 
 #Validation of our Predicted Values, again with a Confusion Matrix
 test.predicted.fit <- predict(fit, newdata = test, type = "response")
@@ -262,11 +263,10 @@ table(train$war[noNA], p_war)
 
 confusionMatrix(factor(p_war), train$war)
 
-
 #Jetzt können wir einen Graph plotten
 predicted.data <- data.frame(probability.of.war = fit1$fitted.values,
                              war = UCDP$war)
-#Was kann ich hier machen???
+#Was kann ich hier machen?
 
 # tidymodels Ansatz -------------------------------------------------------
 
