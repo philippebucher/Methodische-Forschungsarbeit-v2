@@ -46,7 +46,6 @@ UCDP$autoc_dummy <- as_factor(UCDP$autoc_dummy)
 UCDP$Cold_War <- as_factor(UCDP$Cold_War)
 summary(UCDP)
 
-
 # Test und Train Data erstellen -------------------------------------------
 
 #Version 1: Train / Test splits mit tidymodels Ansatz
@@ -72,6 +71,7 @@ set.seed(123)
 sample <- sample(c(TRUE, FALSE), nrow(UCDP), replace = T, prob = c(0.8,0.2))
 train <- UCDP[sample, ]
 test <- UCDP[!sample, ]
+
 
 # Erste bivariate und simple Modelle ---------------------------------
 
@@ -99,25 +99,27 @@ UCDP %>%
 #Bivariates Grundmodell nur mit der unabhängigen Variable ethn. Mobilisierung
 fit <- glm(war ~ recruitment, data = train, family = "binomial")
 summary(fit)
-#Bei einem Wechsel von nicht ethnische mobilisierten Konflikten zu ethnischer Mobilisierung nehmen
+coef(fit)
+#Bei einem Wechsel von nicht ethnisch mobilisierten Konflikten zu ethnischer Mobilisierung nehmen
 #die Log(Odds) eines Kriegs um 0.49 zu.
+
+exp(coef(fit))
+#Bei einem Wechsel von nicht ethnisch mobilisierten zu ethnisch mobilisierten Konflikten, nehmen
+#die Log(odds) um den Faktor 1.63 zu.
+
+#Konfidenzintervalle
+confint(fit)
+exp(confint(fit))
 
 #Bivariates Modell mit der numerischen Variable Konfliktdauer als UV
 fit0 <- glm(war ~ conflict_duration, data = train, family = "binomial")
 summary(fit0)
-
-#Grundmodell mit 2 Predictoren
-fit1 <- glm(war ~ recruitment + conflict_duration, data = train, family = "binomial")
-summary(fit1)
-
-#Interpretation der Koeffizienten
-#To be precise, a one-unit increase in conflict duration is associated with an increase 
-#in the log odds of war by 0.02 units.
-confint(fit)
-exp(coef(fit))
-exp(confint(fit))
 #We can further interpret the conflict duration coefficient as - for every one conflict duration increase 
 #the odds of the conflict escalating to war increases by a factor of 1.63.
+
+#Grundmodell mit 2 Prädikatoren
+fit1 <- glm(war ~ recruitment + conflict_duration, data = train, family = "binomial")
+summary(fit1)
 
 #Vorhersagen machen für bivariates Modell fit
 predict(fit, data.frame(recruitment = factor(c(0,1))), type = "response")
@@ -127,23 +129,32 @@ predict(fit, data.frame(recruitment = factor(c(0,1))), type = "response")
 #Vorhersagen machen für bivariates Modell fit0
 predict(fit0, data.frame(conflict_duration = c(10,20)), type = "response")
 #As you can see as the conflict_duration moves from 10 to 20 the probability of 
-#war increases only slightly, from 26% to 31%!
+#war increases only slightly, from 26% to 31%
 
 #Vorhersagen machen für multivariates Modell fit1
 new.df <- tibble(recruitment = as_factor(c(0,1)), ethfrac = 0.8, conflict_duration = 20)
 predict(fit1, new.df, type = "response")
 #In case of a given ethfrac and conflict duration recruitment has about a third higher probability
-#of war than non-recruitment in conflicts
+#of war than non-recruitment in conflicts.
 
 #Predictions fit1 (Tutorial https://www.youtube.com/watch?v=XycruVLySDg)
 res <- predict(object = fit1, train, type = "response")
 res
 
-#Validate the Model fit0 - Confusion Matrix
+#Validate the Model fit1 - Confusion Matrix
 confmatrix <- table(Actual_Value = train$war, Predicted_Value = res > 0.5)
 confmatrix #Kein 1 wurde effektiv wahrheitsgemäss mit 1 vorausgesagt, sehr ungenügend
 
 #(confmatrix[[1,1]] + confmatrix[[2,2]]/ sum(confmatrix))
+
+#fitted probabilities for y = 1
+head(fit1$fitted.values)
+yHat <- fit1$fitted.values > 0.5
+
+#Hit Matrix
+#tab <- table(train$war, yHat)
+#What should I do in order for them to have the same length?
+
 
 #Which Variable in a multivariate model is the most important/ most influential in 
 #predicting the response Variable War?
@@ -161,6 +172,7 @@ list(fit = pscl::pR2(fit)["McFadden"],
      fit0 = pscl::pR2(fit0)["McFadden"],
      fit1 = pscl::pR2(fit1)["McFadden"])
 #Alle drei Modelle sind ziemlich schlecht. McFadden ist in Ordnung ab 0.2.
+
 
 #Residual Assessment
 library(broom)
@@ -183,7 +195,8 @@ fit1_data %>%
 #This means if we were to remove these observations (not recommended), the shape, 
 #location, and confidence interval of our logistic regression S-curve would likely shift.
 
-#Validation of our Predicted Values
+
+#Validation of our Predicted Values, again with a Confusion Matrix
 test.predicted.fit <- predict(fit, newdata = test, type = "response")
 test.predicted.fit1 <- predict(fit1, newdata = test, type = "response")
 
@@ -203,7 +216,7 @@ test %>%
             f1.error = mean(war != f1.pred))
 #?
 
-#ROC
+#ROC and AUC
 library(ROCR)
 par(mfrow=c(1, 2))
 
@@ -230,8 +243,25 @@ glm.probs <- predict(fit1, type = "response")
 glm.probs[1:5]
 glm.pred <- ifelse(glm.probs > 0.5, "War", "No War")
 
-table(glm.pred, train$war)
-#Was mache ich falsch? Das wäre wieder die Klassifikationstabelle von oben.
+#Confusion Matrix
+noNA<-((is.na(train$war)+is.na(train$recruitment)+ is.na(train$ethfrac) + 
+          +           is.na(train$conflict_duration))==0)
+table(train$war[noNA], glm.probs > 0.5)
+#Jetzt habe ich es behoben, indem ich alle NA's in den verwendeten Variablen herausgefiltert habe.
+#Gibt doch sicher einen einfacheren Weg oder nicht?
+
+#Tutorial Datacamp (https://www.datacamp.com/community/tutorials/confusion-matrix-calculation-r)
+p <- predict(fit1, train, type = "response")
+summary(p)
+
+p_war <- ifelse(p > 0.5, "War", "No War")
+table(p_war)
+
+table(train$war[noNA], p_war)
+#Warum jetzt?
+
+confusionMatrix(factor(p_war), train$war)
+
 
 #Jetzt können wir einen Graph plotten
 predicted.data <- data.frame(probability.of.war = fit1$fitted.values,
@@ -352,11 +382,45 @@ Eck_fit6_2019 <- glm(war ~ recruitment + ethfrac + lag_gdp_per_cap_t + ln_lag_po
 summary(Eck_fit6_2019)
 
 stargazer(Eck_fit2_2019, Eck_fit3_2019, Eck_fit4_2019, 
-          Eck_fit5_2019, type = "text", dep.var.labels = "War",
+          Eck_fit5_2019, Eck_fit6_2019, type = "text", dep.var.labels = "War",
           title = "Table 3: Severity of Armed Conflict, 1946-2019",
           digits = 2, out = "models_eck2.txt", model.names = T, 
           column.labels = c("M2 2019", "M3 2019",
                             "M4 2019", "M5 2019"))
+
+# Interpretation Eck Modelle 2019 -----------------------------------------
+res2 <- predict(object = Eck_fit2_2019, UCDP, type = "response")
+res2
+
+#Validate the Model 2 - Confusion Matrix
+confmatrix <- table(Actual_Value = UCDP$war, Predicted_Value = res2 > 0.5)
+confmatrix
+#wir haben viele (199) False Negative: Das Modell 2 hat keinen Krieg vorausgesagt, aber in Wirklichkeit
+#war es Krieg. False Positives sind, wenn Krieg vorausgesagt wurde aber in Wirklichkeit kein Krieg
+#stattfand.
+
+#Modelle 2, 3, 5 und 6 vergleichen
+anova(Eck_fit2_2019, Eck_fit3_2019, Eck_fit5_2019, Eck_fit6_2019, test = "Chisq")
+anova(Eck_fit2_2019, Eck_fit3_2019, Eck_fit5_2019, Eck_fit6_2019, test = "LR")
+#Wenn wir von Modell 2 zu Modell 6 verringert sich die Residual Devianz und das ist gut. 
+#Wir sehen am wichtigsten, dass diese Anpassungsverbesserung signifikant ist. Das heisst für uns, 
+#dass das multivariate Modell 6 der beste Modellfit ist.
+
+#Überprüfen mit einem Direktvergleich von Modell 3 und Modell 6
+anova(Eck_fit3_2019, Eck_fit6_2019, test = "LR")
+
+#Weitere Goodness of Fit masse: Pseudo R^2
+list(Model_2 = pscl::pR2(Eck_fit2_2019)["McFadden"],
+     Model_3 = pscl::pR2(Eck_fit3_2019)["McFadden"],
+     Model_4 = pscl::pR2(Eck_fit4_2019)["McFadden"],
+     Model_5 = pscl::pR2(Eck_fit5_2019)["McFadden"],
+     Model_6 = pscl::pR2(Eck_fit6_2019)["McFadden"])
+#Alle fünf Modelle sind ziemlich schlecht. Es bestätigt sich, dass Modell 6 am besten ist und das
+#höchste McFadden Pseudo R^2 besitzt. Trotzdem ist das mit einem Wert von 0.1 ziemlich schlecht.
+
+
+
+
 
 # Schritt 2: Replikation Tabelle 1 & 3 Eck mit logarithmischen Modell UCDP Daten 2004 --------------------
 #Hier nehme ich die möglichst gleiche Konstellation an Variablen wie Eck, die genau so kodiert sind.

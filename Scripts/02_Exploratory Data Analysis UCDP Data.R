@@ -60,6 +60,13 @@ dprtools::plotGroupedNAs(data = UCDP, groupvar = location)
 #Andere Art Missings anzuschauen
 Amelia::missmap(UCDP, col = c("blue4", "red4"), legend = T)
 
+complete <- UCDP %>% 
+  select(c(1:12,20,25:35,37:61)) %>% 
+  complete.cases()
+sum(complete)
+mean(complete) #Wow only 16% of the cases are complete for the Variables that we need in our
+#models
+
 # Verteilung der abhängigen Variable Krieg --------------------------------
 
 UCDP %>% 
