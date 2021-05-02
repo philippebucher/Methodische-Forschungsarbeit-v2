@@ -1,4 +1,4 @@
-# Datawrangling, Analyse und Visualisierungen
+# Datawrangling, Analyse und Visualisierungen für Kapitel 5 der Methodischen Forschungsarbeit
 
 # Setup -------------------------------------------------------------------
 
@@ -6,29 +6,27 @@
 library(tidyverse)
 library(devtools)
 #install_github("guyschvitz/dprtools")
-library(dprtools) #Paket Guy
-
-#These are some changes to this script
+library(dprtools) #package Guy
 
 #import data
 UCDP <- readRDS(file = "Data/UCDP_data.rds")
 
-# Explorative Datenanalyse Univariate Verteilungen und Data Transformation ----------------------
+# Übersicht über das UCDP Dataset ----------------------
 
-summary(UCDP$year) #Datensatz reicht von 1946 bis 2019
+summary(UCDP$year)
 
 UCDP %>% 
   summarise(conflicts = n_distinct(conflict_id),
             locations = n_distinct(location),
-            governments = n_distinct(side_a)) #top stimmt überein mit Ländern
+            governments = n_distinct(side_a)) #die location und government stimmen überein
 #In unserem Datensatz haben wir 221 Konflikte, die in 106 Ländern ausgebrochen sind.
 
+#In welchem Land sind wieviele Konflikte ausgebrochen?
 UCDP %>% 
   group_by(location) %>%
   summarise(number_conflicts = n_distinct(conflict_id)) %>% 
   arrange(desc(number_conflicts)) %>% 
   top_n(5)
-#Jetzt sehen wir in welchem Land wieviele Konflikte ausgebrochen sind.  
 
 #Anzahl Konflikte pro Jahr zwischen 1946 und 2019
 UCDP %>% 
@@ -37,15 +35,40 @@ UCDP %>%
   ggplot()+
   geom_line(aes(x = year, y = count_conflict), color = "black", lty = 1)
 
-## Univariate Verteilungen
-#Abhängige Variable Krieg
+#Welche Konflikte dauern besonders lang?
+longest_conflicts <- UCDP %>% 
+  group_by(conflict_id) %>%
+  summarise(
+    first_year = first(year),
+    last_year = last(year),
+    duration = last_year-first_year,
+  ) %>% 
+  arrange(desc(duration)) %>% 
+  top_n(10)
+longest_conflicts
+#Wir sehen ein paar Konflikte, welche sich über den ganzen Datensatz ziehen (209 ist z.B Philippinen). 
+#Ist aber eine andere Messung als die Variable conflict_duration in unserem Datensatz, welche dem 
+#Vorgehen von Eck folgt. Z.B. bei einer inaktiven Zeit von 10 Jahren wird die Konfliktddauer zurückgesetzt und startet von neuem.
+
+# Missings ----------------------------------------------------------------
+
+#Überblick über die Missings verschaffen
+dprtools::plotNAs(data = UCDP)
+dprtools::plotGroupedNAs(data = UCDP, groupvar = year)
+dprtools::plotGroupedNAs(data = UCDP, groupvar = location)
+
+#Andere Art Missings anzuschauen
+Amelia::missmap(UCDP, col = c("blue4", "red4"), legend = T)
+
+# Verteilung der abhängigen Variable Krieg --------------------------------
+
 UCDP %>% 
   group_by(conflict_id, location) %>% 
   count(war)
-#Das ist ein Problem: Wenn ein Konflikt wie Nr 221 mehrmals in Krieg eskaliert.
+#Das kann ein Problem sein, wenn ein Konflikt wie Nr 209 mehrmals in Krieg eskaliert.
 #Die ethnische Mobilisierung bleibt über den ganzen Konflikt gleich, unser Modell erklärt ja dann
 #nicht ob ethnische Mobilisierung nur für die erste Eskalation (Stufe Krieg) verantwortlich ist oder
-#für spätere Intensivierungen auch
+#für spätere Intensivierungen auch.
 
 UCDP %>% 
   count(location, wt = war)
@@ -57,32 +80,14 @@ UCDP %>%
     total_wars = sum(war),
     share_wars = total_wars/count) %>% 
   arrange(desc(total_wars))
-#Ok jetzt sehen wir, wieviele Observationen es pro Konflikt_ID gibt und wieviele davon eskaliert sind in
-#Krieg. Daraus können wir den share berechnen. 93% aller Observationen von Afghanistan (ID = 333), sind
-#Krieg.
+#Jetzt sehen wir, wieviele Observationen es pro Konflikt gibt und wieviele davon eskaliert in
+#Krieg eskaliert sind. Daraus können wir den Anteil berechnen. 
+#Beispiel: 93% aller Observationen von Afghanistan (ID = 333) betreffen Krieg.
 
-longest_conflicts <- UCDP %>% 
-  group_by(conflict_id) %>%
-  summarise(
-    first_year = first(year),
-    last_year = last(year),
-    duration = last_year-first_year,
-  ) %>% 
-  arrange(desc(duration)) %>% 
-  top_n(10)
-longest_conflicts
-
-UCDP %>% 
-  filter(conflict_id == "209") %>% 
-  View()
-#Jetzt sehen wir welche Konflikte von Wann bis wann im Datensatz auftauchen
-
-
-
+#Wieviele Konflikte sind während ihrer ganzen Dauer in Krieg eskaliert und wieviele nicht?
 UCDP %>% 
   group_by(conflict_id, location) %>% 
   summarise(war = max(war)) %>% 
-  #Jetzt sehen wir ob ein Konflikt im Verlauf der Dauer in einen Krieg eskaliert ist
   ggplot()+
   geom_bar(aes(x = war))
 #Die Mehrheit der 221 Konflikte zwischen 1946 und 2019 ist auf niedrigem Intensitätsniveau verblieben
@@ -90,30 +95,46 @@ UCDP %>%
 UCDP %>% 
   ggplot(aes(x = war))+
   geom_bar()
-#Wenn wir uns nur die Observationen anschauen, dann sehen wir, dass die überwiegende Mehrheit der
+#Wenn wir uns dazu nur die Observationen anschauen, dann sehen wir, dass die überwiegende Mehrheit der
 #Observationen auf niedrigem Intensitätsniveau sind und nur eine kleine Anzahl der Observationen Krieg
 #bezeichnen
+
 UCDP %>% 
   count(war)
-#Die Kategorien der abhängigen Variable sind ungleich verteilt, wie sieht es mit der unabhängigen V. aus?
+#Die Kategorien der abhängigen Variable sind ungleich verteilt, wie sieht es mit der unabhängigen 
+#Variable aus?
 
-#Unabhängige Variable ethnische Mobilisierung
+# Verteilung unabhängige Variable ethnische Mobilisierung -----------------
+
+#Wieviele Konflikte haben entlang ethnischen Linien mobilisiert/ rekrutiert?
+UCDP %>% 
+  group_by(conflict_id, location) %>% 
+  summarise(recruitment = max(recruitment)) %>% 
+  ggplot()+
+  geom_bar(aes(x = recruitment))
+#Eine deutliche Mehrheit der Konflikte hat entlang ethnischen Linien mobilisiert.
+
 UCDP %>% 
   group_by(conflict_id) %>% 
   ggplot(aes(x = recruitment))+
   geom_bar()
 count(UCDP, recruitment)
-#Sehr ungleich verteilt, logisch ist da diese Variable häufig signifikant
+#Schauen wir uns nur die Observationen an, dann sehen wir, dass sie sehr ungleich verteilt sind.
+#Auch fallen uns die vielen fehlenden Werte auf!
 
-#Kontrollvariablen untersuchen
+# Kontrollvariablen untersuchen -------------------------------------------
+
+#Besonders Häufigkeiten anschauen, um zu sehen ob die Variable im Datensatz etwa gleich verteilt ist.
 
 #Was ist mit unserer ethnic_conflict variable?
-count(UCDP, ethnic_conflict) #gleichverteilt
-
-count(UCDP, incompatibility) #gleichverteilt
+UCDP %>% 
+  count(ethnic_conflict) #ungleich verteilt
 
 UCDP %>% 
-  count(Cold_War)
+  count(incompatibility) #gleich verteilt
+
+UCDP %>% 
+  count(Cold_War) #gleich verteilt
 
 UCDP %>% 
   count(region)
@@ -126,27 +147,20 @@ ggplot(data = UCDP)+
   geom_histogram(aes(x = ethfrac), bins = 10, 
                  fill="#69b3a2", color="#e9ecef", alpha=0.9)
 
-#Wickham R4DS Empfehlung freqpoly statt Histogramm füllen 
-ggplot(data = UCDP, mapping = aes(x = ethfrac, color = as_factor(war)))+
-  geom_freqpoly()
-
-#Für Kovariation können wir die Density nehmen hier
 ggplot(data = UCDP, mapping = aes(x = ethfrac, y = ..density..))+
   geom_freqpoly(aes(color = as_factor(war)))
 #Wenn wirs so machen, dann sehen wir dass es offenbar keinen Unterschied macht wie hoch die
 #ethnische Fragmentierung ist, ob ein Konflikt intensiviert oder nicht.
 
-#Andere Möglichkeit für Kovariation sind boxplots
+#Andere Möglichkeit für um die Kovariation zu untersuchen sind boxplots
+#Hier der Zusammenhang zwischen ethnischer Fragmentierung und Krieg
 ggplot(data = UCDP)+
   geom_boxplot(aes(x = ethfrac, fill = as_factor(war)))+
   coord_flip()
-#Die gruppierten Boxplots zeigen, dass Staaten, die in Krieg eskaliert sind einen höheren
+#Die gruppierten Boxplots zeigen, dass Konflikte, die in Krieg eskaliert sind einen höheren
 #Median haben.
 
-ggplot(data = UCDP, mapping = aes(x = reorder(as_factor(war), ethfrac, FUN = median), 
-                                  y = ethfrac))+
-  geom_boxplot()
-
+#Zusammenhang von ethnischer Fragmentierung und ethnischer Rekrutierung
 UCDP %>% 
   drop_na(recruitment) %>% 
   ggplot()+
@@ -154,20 +168,15 @@ UCDP %>%
   coord_flip()
 #Wie interpretiere ich die ethnische Fragmentierung?
 
-# Explorative Datenanalyse Bivariate Verteilungen: Korrelationen -------------------------
+# Korrelationen -------------------------
 #(Tutorial: http://www.sthda.com/english/wiki/correlation-matrix-a-quick-start-guide-to-analyze-format-and-visualize-a-correlation-matrix-using-r-software)
 cor(UCDP$war, UCDP$recruitment, use = "complete.obs") #minimale Korrelation
 
 correlations <- UCDP %>% 
   select_if(is.numeric) %>% 
-  select(-c(conflict_id, year)) #nur numerisch relevante Variablen auswählen
-
-corr_matrix <- cor(correlations, use = "complete.obs")
-corr_matrix
+  select(c(3,6,10,18:21,24,27,31,33,38,42,48)) #nur numerisch relevante Variablen auswählen
 
 res <- Hmisc::rcorr(as.matrix(correlations))
-res
-res$r
 
 # ++++++++++++++++++++++++++++
 # flattenCorrMatrix
@@ -184,21 +193,25 @@ flattenCorrMatrix <- function(cormat, pmat) {
   )
 }
 
-res2 <- Hmisc::rcorr(as.matrix(correlations[,1:15]))
-flattenCorrMatrix(res2$r, res2$P)
+flattenCorrMatrix(res$r, res$P) %>% 
+  filter(row == c("war", "recruitment")) %>% 
+  arrange(desc(cor))
+#Wir sehen hier, dass die Korrelationen zwischen war und recruitment und den anderen Variablen
+#extrem klein sind.
 
 #Korrelationen visuell darstellen
-#symnum(res2, abbr.colnames = FALSE, na = F)
-corrplot::corrplot(corr_matrix, type = "upper", order = "hclust", 
-                   tl.col = "black", tl.srt = 45)
-corrplot::corrplot(corr_matrix[,1:5])
-#jetzt sehen wir die Korrelationen zwischen den numerischen Variablen sind aber wohl eher schwach
+corrplot::corrplot(res$r, order="hclust", p.mat = res2$P, 
+                   sig.level = 0.05, insig = "blank") 
+#Viele der oben genannten Korrelationen sind gar nicht überhaupt nicht signifikant
 
-corrplot::corrplot(res2$r, order="hclust", p.mat = res2$P, 
-                   sig.level = 0.05, insig = "blank") #Signifikanzlevel wie im Tutorial auf 0.01 ändern
-
-#Heatmap
+#Dasselbe als Heatmap
 heatmap(x = res$r, col = c("blue", "white", "red"), symm = T)
+
+
+#Was mache ich, wenn die Variablen überhaupt nicht korrelieren? Der Grund dafür könnte in den vielen
+#Missings liegen.
+
+
 
 
 # Explorative Datenanalyse Bivariate Verteilungen: Visualisierungen -------
@@ -289,15 +302,7 @@ UCDP %>%
 
 
 
-# Missings ----------------------------------------------------------------
 
-#Überblick über die Missings verschaffen
-dprtools::plotNAs(data = UCDP)
-dprtools::plotGroupedNAs(data = UCDP, groupvar = year)
-dprtools::plotGroupedNAs(data = UCDP, groupvar = location)
-
-#Andere Art Missings anzuschauen
-Amelia::missmap(UCDP, col = c("blue4", "red4"), legend = T) #bruv viele missings
 
 
 # Schritt 1: Erweiterte Analyse logarithmisches Modell mit 2019 Daten ----------------
