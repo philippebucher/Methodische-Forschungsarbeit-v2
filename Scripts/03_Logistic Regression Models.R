@@ -78,7 +78,7 @@ test <- UCDP[!sample, ]
 #Visualisierungen
 UCDP %>% 
   ggplot(aes(ln_lag_gdp_per_cap, as.numeric(as.character(war))))+
-  geom_point(alpha = 0.15)+
+  geom_jitter(alpha = 0.15, height = 0.03)+
   geom_smooth(method = "glm", method.args = list(family = "binomial"))+
   labs(title = "Logistic Regression model fit")+
   xlab("Conflict Duration")+
@@ -86,11 +86,13 @@ UCDP %>%
 
 UCDP %>% 
   ggplot(aes(as.numeric(as.character(recruitment)), as.numeric(as.character(war))))+
-  geom_jitter(alpha = 0.15)+
+  geom_jitter(alpha = 0.15, height = 0.03)+
   geom_smooth(method = "glm", method.args = list(family = "binomial"))+
   labs(title = "Logistic Regression model fit")+
   xlab("Ethnic Recruitment")+
   ylab("Probability of War")
+#sieht komisch aus mit gerader Linie statt S-Kurve
+
 #Diese beiden Visualisierungen beunruhigen mich. Für die gesamte range von Conflict Duration gibt es
 #Konflikte, die eskalieren und solche die auf niedrigem Niveau verbleiben.Offenbar ist die Trennleistung
 #sehr gering denn die Kurve sieht eher wie eine Gerade aus als eine typische S-Kurve wie wir sie aus 
@@ -419,9 +421,6 @@ list(Model_2 = pscl::pR2(Eck_fit2_2019)["McFadden"],
 #höchste McFadden Pseudo R^2 besitzt. Trotzdem ist das mit einem Wert von 0.1 ziemlich schlecht.
 
 
-
-
-
 # Schritt 2: Replikation Tabelle 1 & 3 Eck mit logarithmischen Modell UCDP Daten 2004 --------------------
 #Hier nehme ich die möglichst gleiche Konstellation an Variablen wie Eck, die genau so kodiert sind.
 
@@ -458,10 +457,19 @@ Eck_fit6_2004 <- glm(war ~ recruitment + ethfrac + lag_gdp_per_cap_t + ln_lag_po
                 data = UCDP_Eck, family = "binomial")
 summary(Eck_fit6_2004)
 
-stargazer(Eck_fit2_2004, Eck_fit3_2004, Eck_fit4_2004, Eck_fit5_2004, type = "text",
+stargazer(Eck_fit2_2004, Eck_fit3_2004, Eck_fit4_2004, Eck_fit5_2004, Eck_fit6_2004, type = "text",
           dep.var.labels = "war",
           title = "Table 3: Severity of Armed Conflict, 1946-2004",
           digits = 2, out = "models_eck.txt", model.names = T)
+
+# Interpretation Eck Modelle 2004 -----------------------------------------
+
+list(Model_2 = pscl::pR2(Eck_fit2_2004)["McFadden"],
+     Model_3 = pscl::pR2(Eck_fit3_2004)["McFadden"],
+     Model_4 = pscl::pR2(Eck_fit4_2004)["McFadden"],
+     Model_5 = pscl::pR2(Eck_fit5_2004)["McFadden"],
+     Model_6 = pscl::pR2(Eck_fit6_2004)["McFadden"])
+#Die Modelle sind noch schlechter bzw. gleich schlecht wie die 2019 Modelle.
 
 #Jetzt kann ich eine Regressionstabelle machen, welche die 2004 Modelle mit denjenigen von 2019 vergleicht.
 #Um den Vergleich zu erleichtern wurden die Modelle möglichst so gefitted wie in der Originalstudie. Ohne
@@ -511,63 +519,123 @@ fit6 <- glm(war ~ recruitment + ethfrac + ln_lag_gdp_per_cap + ln_lag_pop_tot + 
 summary(fit6)
 
 #Regressionstabelle erstellen: diese kommt in die Arbeit
-stargazer(fit2, fit3, fit4, fit5, 
+stargazer(fit2, fit3, fit4, fit5, fit6, 
           type = "text", dep.var.labels = "War",
           title = "Tabelle 3: Risiko der Konfliktintensivierung 1946-2019",
           digits = 2, out = "models_philippe.txt", model.names = T)
 
-#Achtung fit4 = Modell 4 aus der Tabelle 3 hat weniger Observationen als die anderen drei Modelle
-#und es ist deshalb schwierig diese Modelle zu vergleichen
-
-# Schritt 4: Interpretation der Modelle aus Tabelle 1 & 3 mit 2019 Daten ----------------------------
+# Interpretation der eigenen Modelle aus Tabelle 1 & 3 mit 2019 Daten ----------------------------
 
 #Wie wähle ich das beste Modell aus?
+list(Model_2 = pscl::pR2(fit2)["McFadden"],
+     Model_3 = pscl::pR2(fit3)["McFadden"],
+     Model_4 = pscl::pR2(fit4)["McFadden"],
+     Model_5 = pscl::pR2(fit5)["McFadden"],
+     Model_6 = pscl::pR2(fit6)["McFadden"])
+#Auch wenn ich die Variablen ein wenig anders Messe (z.B. GDP per Capita oder Demokratie + Autokratie)
+#verbessert sich das McFadden Pseudo R^2 nicht. Die Modelle bleiben immer noch sehr schwach. Wäre nicht
+#ein Wert von 0.4 sehr gut bzw. ab 0.2 akzeptabel?
 
-#Analyse des Modells 5 (weil kleinste Log-Likelihood)
-broom::tidy(fit5)
-logLik(fit5) #Log Likelihood
-fit5$aic
+#Achtung fit4 = Modell 4 aus der Tabelle 3 hat weniger Observationen als die anderen drei Modelle
+#und es ist deshalb schwierig diese Modelle zu vergleichen. Modellvergleiche kann nur Modelle vergleichen 
+#mit der gleichen Anzahl Observation, deshalb fällt hier Modell 4 raus und ich fokussiere mich auf die 
+#anderen Modelle der Tabellen 3 und 1 aus der Originalstudie
+anova(fit5, fit6, test = "Chisq") 
+
+#Likelihood-Ratio Test
+library(lmtest)
+lrtest(fit5, fit6) #gleiches Resultat, nur andere Funktion
+
+#Offenbar ist das Modell 6 das beste, weshalb ich das genauer untersuche:
+broom::tidy(fit6)
+logLik(fit6) #Log Likelihood
+LogRegR2(fit6) #Chi^2 = L^2 Prüfgrösse 0.09 McFadden ist nicht sehr nice
+fit6$aic
 
 confint(fit5) #Wenn es den Wert 0 beinhaltet hat die entsprechende UV in der GG keinen Effekt
 coef(fit5) #Logits
 exp(coef(fit5)) #Effektkoeffizienten: Sind das die Odds Ratio wie (https://www.youtube.com/watch?v=D1xVEi8PU-A) sagt?
 exp(confint(fit5)) #Konfidenzintervalle Odds Ratio, wenn 1 drin dann nicht signifikant
 
-LogRegR2(fit5) #Chi^2 = L^2 Prüfgrösse 0.09 McFadden ist nicht sehr nice
-fit5$null.deviance - fit4$deviance
+#Hosmer-Lemeshow Test
+# library(ResourceSelection)
+# hoslem.test(UCDP$war, fitted(fit6), g= 10)
 
-#Modellvergleiche kann nur Modelle vergleichen mit der gleichen Anzahl Observation, deshalb fällt
-#hier Modell 4 raus und ich fokussiere mich auf die anderen Modelle der Tabelle aus der Originalstudie
-anova(fit2, fit3, fit5, test = "Chi")
-#Die Residualdevianz des dritten Modells (fit5) ist kleiner als bei fit2 und fit3 und 
-#somit bessere Anpassungleistung.
-#Die Verbesserung von fit2 auf fit3 ist aber NICHT signifikant
+#Wald Test
+library(survey)
+regTermTest(fit6, "recruitment")
+#Die erklärende Variable ethnische Mobilisierung ist signifikant.
 
-#Plotten
-ggplot(data = UCDP, aes(x = as.numeric(as.character(recruitment)), y = as.numeric(as.character(war)))) +
-  geom_jitter(alpha = 0.1, height = 0.05) +
-  geom_smooth(method = "glm", method.args = list(family = "binomial")) +
-  ylab("Conflict Intensity")+
-  xlab("Recruitment")
-#sieht komisch aus mit gerader Linie statt S-Kurve
+#Variable Importance
+varImp(fit6)
+#Interessant ist, dass recruitment nicht die wichtigste Variable im Modell ist!
 
 #Herausfinden, welches X ist am wichtigsten um Y vorherzusagen
 list(fit2 = varImp(fit2),
      fit3 = varImp(fit3),
      fit4 = varImp(fit4),
-     fit5 = varImp(fit5))
-#Wir sehen, dass recruitment, d.h. unsere primäre erklärende Variable in diesen Modellen
-#nicht am wichtigsten ist.
-
-#Goodness of Fit: Pseudo R^2 mit McFadden
-list(fit2 = pscl::pR2(fit2)["McFadden"],
-     fit3 = pscl::pR2(fit3)["McFadden"],
-     fit4 = pscl::pR2(fit4)["McFadden"],
-     fit5 = pscl::pR2(fit5)["McFadden"])
-#0.4 wäre ein guter Wert offenbar sind die Modelle gar nicht gut! Poor fit
+     fit5 = varImp(fit5),
+     fit6 = varImp(fit6))
+#Bei den anderen Modellen das gleiche: ethnische Mobilierung ist nicht der wichtigste Prädikator.
 
 
-# Schritt 5: Weitere Modellspezifikationen -------------------------------------------
+#Validation of Predicted Values
+#Classification Rate
+
+fit6_train <- glm(war ~ recruitment + ethfrac + ln_lag_gdp_per_cap + ln_lag_pop_tot + democ + autoc +
+                    incompatibility + Cold_War + side_b_2nd_dummy + conflict_duration,
+                  data = train, family = "binomial")
+pred <- predict(object = fit6_train, newdata = test, type = "response", na.action = na.exclude)
+accuracy = table(pred, test$war[1:length(pred)])
+sum(diag(accuracy)) / sum(accuracy)
+
+pred <- predict(fit6_train, newdata = test, type = "response", na.action = na.pass)
+pred
+#confusionMatrix(table(data = pred, test$war))
+str(pred)
+
+confmatrix <- table(Predicted_Value = pred > 0.5, Actual_Value = train$war[1:length(pred)])
+confmatrix
+sensitivity <- confmatrix[[1,1]] / (confmatrix[[1,1]] + confmatrix[[2,1]])
+sensitivity #sensitivity tells us that 95% of the conflicts where war occured were correctly identified by the Model
+specificity <- confmatrix[[2,2]] / (confmatrix[[2,2]] + confmatrix[[1,2]])
+specificity #this tells us that 6% of the conflicts where war didn't occur were correctly identified
+#by the Logistic Regression Model
+
+#Ich bin nicht sicher, ob ich das richtig von Hand berechnet habe.
+
+#ROC-Curve
+library(pROC)
+f1 <- roc(war ~ as.numeric(as.character(recruitment)) + ethfrac + ln_lag_gdp_per_cap + 
+            ln_lag_pop_tot + democ + autoc + as.numeric(as.character(incompatibility)) + 
+            as.numeric(as.character(Cold_War)) + as.numeric(as.character(side_b_2nd_dummy)) + 
+            conflict_duration, data = train) #geht nicht
+f1 <- roc(war ~ conflict_duration, data = train)
+plot(f1, col = "red")
+
+library(ROCR)
+prob <- predict(fit6_train, newdata = test, type = "response", na.action = na.exclude)
+prob #Das sind die Wahrscheinlichkeiten für jede Observation, dass y = 1
+pred <- prediction(prob, test$war[1:length(prob)])
+perf <- performance(pred, measure = "tpr", x.measure = "fpr")
+plot(perf)
+
+auc <- performance(pred, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+#Das kann doch nicht sein, dass die AUC Kurve kleiner als 0.5 ist oder schon?
+
+#K-Fold Cross Validation
+ctrl <- trainControl(method = "repeatedcv", number = 10, savePredictions = TRUE)
+mod_fit <- train(war ~ recruitment + ethfrac + ln_lag_gdp_per_cap + ln_lag_pop_tot + democ + autoc +
+                   incompatibility + Cold_War + side_b_2nd_dummy + conflict_duration, data = UCDP,
+                 method="glm", family="binomial",
+                 trControl = ctrl, tuneLength = 5, na.action = na.exclude)
+pred = predict(mod_fit, newdata=test)
+confusionMatrix(data=pred, test$war[1:length(pred)])
+#Specificity = 0, wow
+
+# Schritt 4: Weitere Modellspezifikationen -------------------------------------------
 
 #Hier kontrolliere ich für ethnischen Konflikt = Endogenität?
 fit7 <- glm(war ~ recruitment + ethnic_conflict + ethfrac + ln_lag_gdp_per_cap + ln_lag_pop_tot + 
@@ -613,5 +681,14 @@ stargazer(fit6, fit7, fit8, fit9, fit10, fit11, fit12,
           title = "Tabelle 1: Risiko der Konfliktintensivierung 1946-2019",
           digits = 2, out = "models_philippe3.txt", model.names = T)
 
-# Schritt 4: Interpretation der erweiterten Modelle -----------------------
+# Interpretation der erweiterten Modelle -----------------------
+
+list(Model_6 = pscl::pR2(fit6)["McFadden"],
+     Model_7 = pscl::pR2(fit7)["McFadden"],
+     Model_8 = pscl::pR2(fit8)["McFadden"],
+     Model_9 = pscl::pR2(fit9)["McFadden"],
+     Model_10 = pscl::pR2(fit10)["McFadden"],
+     Model_11 = pscl::pR2(fit11)["McFadden"],
+     Model_12 = pscl::pR2(fit12)["McFadden"])
+#McFadden wird eifach nicht besser.
 
