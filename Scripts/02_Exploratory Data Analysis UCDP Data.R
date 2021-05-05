@@ -11,6 +11,27 @@ library(dprtools) #package Guy
 #import data
 UCDP <- readRDS(file = "Data/UCDP_data.rds")
 
+
+# Kleine Data Preparation Änderungen --------------------------------------
+
+#Alle Variablen aus dem ACD2EPR Datensatz, welche NA's sind in 0 codieren. 0 heisst laut Guy, dass
+#". Die EPR-Daten wurden so kodiert, dass bei einem fehlen einer ethnischen Verbindung alle Variablen 
+#den Wert NA bekommen."
+
+count(UCDP, ethnic_conflict)
+UCDP$ethnic_conflict[is.na(UCDP$ethnic_conflict)] <- 0
+
+count(UCDP, recruitment)
+UCDP$recruitment[is.na(UCDP$recruitment)] <- 0
+
+count(UCDP, claim)
+UCDP$claim[is.na(UCDP$claim)] <- 0
+
+count(UCDP, support)
+UCDP$support[is.na(UCDP$support)] <- 0
+UCDP <- UCDP %>% 
+  mutate(support = if_else(support > 0, 1, 0))
+
 # Übersicht über das UCDP Dataset ----------------------
 
 summary(UCDP$year)
@@ -64,10 +85,10 @@ complete <- UCDP %>%
   select(c(1:12,20,25:35,37:61)) %>% 
   complete.cases()
 sum(complete)
-mean(complete) #Wow only 16% of the cases are complete for the Variables that we need in our
-#models
+mean(complete) #Wow if we recoded the ACD2EPR Variables the amount of complete observations (cases)
+#jumps from  only 16% to 25%. These are just the Variables that we need in our models
 
-# Verteilung der abhängigen Variable Krieg --------------------------------
+# Verteilung der abhängigen Variable Krieg -------------------------------
 
 UCDP %>% 
   group_by(conflict_id, location) %>% 
@@ -135,7 +156,7 @@ count(UCDP, recruitment)
 
 #Was ist mit unserer ethnic_conflict variable?
 UCDP %>% 
-  count(ethnic_conflict) #ungleich verteilt
+  count(ethnic_conflict) #fast gleich verteilt
 
 UCDP %>% 
   count(incompatibility) #gleich verteilt
@@ -214,10 +235,8 @@ corrplot::corrplot(res$r, order="hclust", p.mat = res2$P,
 #Dasselbe als Heatmap
 heatmap(x = res$r, col = c("blue", "white", "red"), symm = T)
 
-
 #Was mache ich, wenn die Variablen überhaupt nicht korrelieren? Der Grund dafür könnte in den vielen
 #Missings liegen.
-
 
 # Bivariate Verteilungen: Visualisierungen -------
 correlations %>% 
@@ -267,8 +286,9 @@ UCDP %>%
   ggplot(aes(x = as_factor(recruitment)))+
   geom_bar(aes(fill = as_factor(war)), position = "fill")
 #Das macht es einfacher Verhältnisse über Gruppen besser zu verstehen. Konflikte, die entlang
-#ethnischen Linien mobilisieren sind häufiger in Krieg eskaliert, als solche die nicht entlang
+#ethnischen Linien mobilisieren sind weniger häufiger in Krieg eskaliert, als solche die nicht entlang
 #ethnischen Linien mobilisiert haben.Wenn auch diese Unterschiede nur minimal sind.
+#SPRICHT aber Gegen die Hypothese!
 
 UCDP %>% 
   drop_na(recruitment) %>% 
@@ -276,7 +296,6 @@ UCDP %>%
 #Das spricht aber überhaupt nicht für meine These, dass ethnische Mobilisierung einen Einfluss auf
 #die Konfliktintensität hat. Denn über 1000 ethnisch mobilisierte Observationen sind auf niedrigem
 #Niveau verblieben.
-
 
 #Zwischenfazit bevor ich die Replikation der Resultate von Eck in Angriff nehme: Im Datensatz hat es sehr
 #Viele Missings und die Korrelationen innerhalb des Datensatzes sind oft schwach und unklar.

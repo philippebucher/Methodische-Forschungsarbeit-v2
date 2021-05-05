@@ -25,6 +25,26 @@ library(vip)
 #import data
 UCDP <- readRDS(file = "Data/UCDP_data.rds")
 
+# Kleine Data Preparation Änderungen --------------------------------------
+
+#Alle Variablen aus dem ACD2EPR Datensatz, welche NA's sind in 0 codieren. 0 heisst laut Guy, dass
+#". Die EPR-Daten wurden so kodiert, dass bei einem fehlen einer ethnischen Verbindung alle Variablen 
+#den Wert NA bekommen."
+
+count(UCDP, ethnic_conflict)
+UCDP$ethnic_conflict[is.na(UCDP$ethnic_conflict)] <- 0
+
+count(UCDP, recruitment)
+UCDP$recruitment[is.na(UCDP$recruitment)] <- 0
+
+count(UCDP, claim)
+UCDP$claim[is.na(UCDP$claim)] <- 0
+
+count(UCDP, support)
+UCDP$support[is.na(UCDP$support)] <- 0
+UCDP <- UCDP %>% 
+  mutate(support = if_else(support > 0, 1, 0))
+
 # Dummy Variablen in Faktoren umwandeln -----------------------------------
 str(UCDP)
 UCDP$war <- as_factor(UCDP$war)
@@ -129,8 +149,8 @@ summary(fit1)
 
 #Vorhersagen machen für bivariates Modell fit
 predict(fit, data.frame(recruitment = factor(c(0,1))), type = "response")
-#Nur kleine Erhöhung in der Wahrscheinlichkeit in Krieg zu eskalieren, wenn ethnisch mobilisiert
-#wird.
+#Spricht gegen meine Hypothese, weil Verringerung in der Wahrscheinlichkeit in Krieg zu eskalieren, 
+#wenn ethnisch mobilisiert wird.
 
 #Vorhersagen machen für bivariates Modell fit0
 predict(fit0, data.frame(conflict_duration = c(10,20)), type = "response")
@@ -140,7 +160,7 @@ predict(fit0, data.frame(conflict_duration = c(10,20)), type = "response")
 #Vorhersagen machen für multivariates Modell fit1
 new.df <- tibble(recruitment = as_factor(c(0,1)), ethfrac = 0.8, conflict_duration = 20)
 predict(fit1, new.df, type = "response")
-#In case of a given ethfrac and conflict duration recruitment has about a third higher probability
+#In case of a given ethfrac and conflict duration recruitment has about 6% lower probability
 #of war than non-recruitment in conflicts.
 
 #Predictions fit1 (Tutorial https://www.youtube.com/watch?v=XycruVLySDg)
@@ -236,6 +256,7 @@ prediction(test.predicted.fit1, test$war) %>%
 prediction(test.predicted.fit, test$war) %>%
   performance(measure = "auc") %>%
   .@y.values
+#Nur leichte Verbesserung im Vergleich zu random guessing
 
 #Tutorial Datacamp (https://www.datacamp.com/community/tutorials/logistic-regression-R)
 fit1 <- glm(war ~ recruitment + ethfrac + conflict_duration, data = train, 
@@ -340,6 +361,7 @@ crossVal
 pred <- predict(crossVal, newdata = UCDP, na.action = na.pass)
 
 confusionMatrix(data = pred, reference = as_factor(UCDP$war))
+###!!!!!!
 
 #Producing ROC Curve of Model (ab Minute 46 im Tutorial)
 probFull <- predict(fit1, UCDP, type = "response", na.action = na.omit)
@@ -388,14 +410,14 @@ stargazer(Eck_fit2_2019, Eck_fit3_2019, Eck_fit4_2019,
           title = "Table 3: Severity of Armed Conflict, 1946-2019",
           digits = 2, out = "models_eck2.txt", model.names = T, 
           column.labels = c("M2 2019", "M3 2019",
-                            "M4 2019", "M5 2019"))
+                            "M4 2019", "M5 2019", "M6 2019"))
 
 # Interpretation Eck Modelle 2019 -----------------------------------------
 res2 <- predict(object = Eck_fit2_2019, UCDP, type = "response")
 res2
 
 #Validate the Model 2 - Confusion Matrix
-confmatrix <- table(Actual_Value = UCDP$war, Predicted_Value = res2 > 0.5)
+confmatrix <- table(Predicted_Value = res2 > 0.5, Actual_Value = UCDP$war)
 confmatrix
 #wir haben viele (199) False Negative: Das Modell 2 hat keinen Krieg vorausgesagt, aber in Wirklichkeit
 #war es Krieg. False Positives sind, wenn Krieg vorausgesagt wurde aber in Wirklichkeit kein Krieg
