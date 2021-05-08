@@ -42,6 +42,13 @@ UCDP %>%
             governments = n_distinct(side_a)) #die location und government stimmen überein
 #In unserem Datensatz haben wir 221 Konflikte, die in 106 Ländern ausgebrochen sind.
 
+#In welcher Region sind am meisten Konflikte aufgeführt?
+UCDP %>% 
+  group_by(region) %>% 
+  summarise(number_region = n_distinct(conflict_id)) %>% 
+  arrange(desc(number_region))
+#Am meisten Konflikte fanden in Region 4 (= Afrika) und 3 (=Asien) statt.
+
 #In welchem Land sind wieviele Konflikte ausgebrochen?
 UCDP %>% 
   group_by(location) %>%
@@ -53,8 +60,23 @@ UCDP %>%
 UCDP %>% 
   group_by(year) %>% 
   summarise(count_conflict = n()) %>% 
+  summarise(max = max(count_conflict)) #Maximal gab es in einem Jahr also 54 laufende Konflikte
+
+UCDP %>% 
+  group_by(year) %>% 
+  summarise(count_conflict = n()) %>% 
   ggplot()+
-  geom_line(aes(x = year, y = count_conflict), color = "black", lty = 1)
+  geom_area(aes(x = year, y = count_conflict), fill = "lightskyblue", color = "lightskyblue4")+ 
+  theme_minimal()+
+  labs(title = "Anzahl innerstaatlicher Konflikte 1946-2019", x = "Jahr", y = "Anzahl")+
+  scale_x_continuous(n.breaks = 10)+
+  scale_y_continuous(n.breaks = 7)
+
+UCDP %>% 
+  filter(year >= 2011) %>% 
+  arrange(location, year) %>% 
+  View()
+
 
 #Welche Konflikte dauern besonders lang?
 longest_conflicts <- UCDP %>% 
@@ -67,6 +89,9 @@ longest_conflicts <- UCDP %>%
   arrange(desc(duration)) %>% 
   top_n(10)
 longest_conflicts
+
+UCDP %>% 
+  filter(conflict_id %in% c("209"))
 #Wir sehen ein paar Konflikte, welche sich über den ganzen Datensatz ziehen (209 ist z.B Philippinen). 
 #Ist aber eine andere Messung als die Variable conflict_duration in unserem Datensatz, welche dem 
 #Vorgehen von Eck folgt. Z.B. bei einer inaktiven Zeit von 10 Jahren wird die Konfliktddauer zurückgesetzt und startet von neuem.
@@ -75,7 +100,8 @@ longest_conflicts
 
 #Überblick über die Missings verschaffen
 dprtools::plotNAs(data = UCDP)
-dprtools::plotGroupedNAs(data = UCDP, groupvar = year)
+dprtools::plotGroupedNAs(data = UCDP, groupvar = year)+
+  theme_minimal()
 dprtools::plotGroupedNAs(data = UCDP, groupvar = location)
 
 #Andere Art Missings anzuschauen
@@ -91,22 +117,36 @@ mean(complete) #Wow if we recoded the ACD2EPR Variables the amount of complete o
 # Verteilung der abhängigen Variable Krieg -------------------------------
 
 UCDP %>% 
-  group_by(conflict_id, location) %>% 
   count(war)
+
+1721/2330
+609/2330
+
+1721/609
+
+#Die Kategorien der abhängigen Variable sind ungleich verteilt, wie sieht es mit der unabhängigen 
+#Variable aus?
+
+UCDP %>% 
+  group_by(conflict_id, location) %>% 
+  count(war) %>% 
+  arrange(desc(n))
+  
 #Das kann ein Problem sein, wenn ein Konflikt wie Nr 209 mehrmals in Krieg eskaliert.
 #Die ethnische Mobilisierung bleibt über den ganzen Konflikt gleich, unser Modell erklärt ja dann
 #nicht ob ethnische Mobilisierung nur für die erste Eskalation (Stufe Krieg) verantwortlich ist oder
 #für spätere Intensivierungen auch.
 
 UCDP %>% 
-  count(location, wt = war)
+  count(location, wt = war) %>% 
+  arrange(desc(n))
 
 UCDP %>% 
   group_by(conflict_id, location) %>% 
   summarise(
     count = n(),
     total_wars = sum(war),
-    share_wars = total_wars/count) %>% 
+    share_wars = total_wars/count*100) %>% 
   arrange(desc(total_wars))
 #Jetzt sehen wir, wieviele Observationen es pro Konflikt gibt und wieviele davon eskaliert in
 #Krieg eskaliert sind. Daraus können wir den Anteil berechnen. 
@@ -115,9 +155,18 @@ UCDP %>%
 #Wieviele Konflikte sind während ihrer ganzen Dauer in Krieg eskaliert und wieviele nicht?
 UCDP %>% 
   group_by(conflict_id, location) %>% 
-  summarise(war = max(war)) %>% 
+  summarise(wars = max(war)) %>%
+  ungroup() %>% 
+  summarise(sum = sum(wars)) 
+#94 der 221 Konflikte sind in Krieg eskaliert, 127 nicht.
+221-94
+
+#Visualisieren
+UCDP %>% 
+  group_by(conflict_id, location) %>% 
+  summarise(wars = max(war)) %>%
   ggplot()+
-  geom_bar(aes(x = war))
+  geom_bar(aes(x = wars))
 #Die Mehrheit der 221 Konflikte zwischen 1946 und 2019 ist auf niedrigem Intensitätsniveau verblieben
 
 UCDP %>% 
@@ -127,14 +176,18 @@ UCDP %>%
 #Observationen auf niedrigem Intensitätsniveau sind und nur eine kleine Anzahl der Observationen Krieg
 #bezeichnen
 
-UCDP %>% 
-  count(war)
-#Die Kategorien der abhängigen Variable sind ungleich verteilt, wie sieht es mit der unabhängigen 
-#Variable aus?
 
 # Verteilung unabhängige Variable ethnische Mobilisierung -----------------
 
 #Wieviele Konflikte haben entlang ethnischen Linien mobilisiert/ rekrutiert?
+UCDP %>% 
+  group_by(conflict_id, location) %>% 
+  summarise(recruitments = max(recruitment)) %>%
+  ungroup() %>% 
+  summarise(sum = sum(recruitments)) 
+#150 der 221 Konflikte haben entlang ethnischen Linien mobilisiert.
+221-150
+
 UCDP %>% 
   group_by(conflict_id, location) %>% 
   summarise(recruitment = max(recruitment)) %>% 
@@ -148,7 +201,6 @@ UCDP %>%
   geom_bar()
 count(UCDP, recruitment)
 #Schauen wir uns nur die Observationen an, dann sehen wir, dass sie sehr ungleich verteilt sind.
-#Auch fallen uns die vielen fehlenden Werte auf!
 
 # Kontrollvariablen untersuchen -------------------------------------------
 
@@ -232,9 +284,10 @@ corrplot::corrplot(res$r, order="hclust", p.mat = res2$P,
                    sig.level = 0.05, insig = "blank") 
 #Viele der oben genannten Korrelationen sind gar nicht überhaupt nicht signifikant
 
+corrplot::corrplot(res$r, type = "lower")
+
 #Dasselbe als Heatmap
 heatmap(x = res$r, col = c("blue", "white", "red"), symm = T)
-
 #Was mache ich, wenn die Variablen überhaupt nicht korrelieren? Der Grund dafür könnte in den vielen
 #Missings liegen.
 
@@ -270,7 +323,7 @@ UCDP %>%
 ggplot(data = UCDP, aes(x = conflict_duration, y = ln_lag_gdp_per_cap))+
   geom_jitter()+
   facet_wrap(~ as_factor(war), ncol = 2)
-#Die Beziehung zwischen GDP und Konfliktddauer sieht gleich aus wenn wir die Grafik nach
+#Die Beziehung zwischen GDP und Konfliktddauer sieht etwa gleich aus wenn wir die Grafik nach
 #Krieg aufsplitten.
 
 UCDP %>% 
@@ -291,8 +344,24 @@ UCDP %>%
 #SPRICHT aber Gegen die Hypothese!
 
 UCDP %>% 
-  drop_na(recruitment) %>% 
+  count(war)
+
+UCDP %>% 
+  count(recruitment)
+
+UCDP %>% 
   count(recruitment, war)
+
+library(flextable)
+UCDP %>% 
+  count(war, recruitment) %>% 
+  flextable() %>% 
+  autofit() %>% 
+  theme_zebra() %>% 
+  add_header_lines("Bivariate Verteilung Krieg und ethnische Mobilisierung") %>%
+  set_header_labels(n = "Anzahl", war = "Krieg", recruitment = "Ethnische Mobilisierung") %>% 
+  align(align = "left", part = "all") %>% 
+  colformat_num(big.mark = "'")
 #Das spricht aber überhaupt nicht für meine These, dass ethnische Mobilisierung einen Einfluss auf
 #die Konfliktintensität hat. Denn über 1000 ethnisch mobilisierte Observationen sind auf niedrigem
 #Niveau verblieben.
