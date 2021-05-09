@@ -379,6 +379,7 @@ Eck_fit2_2019 <- glm(war ~ recruitment + ethfrac + lag_gdp_per_cap_t + ln_lag_po
                        autoc_dummy + incompatibility + Cold_War + conflict_duration,
                      data = UCDP, family = "binomial")
 summary(Eck_fit2_2019)
+exp(coef(Eck_fit2_2019))
 
 #Table 3 Model 3 mit 2019 Daten
 Eck_fit3_2019 <- glm(war ~ recruitment + ethfrac + ethfracsq + lag_gdp_per_cap_t + ln_lag_pop_t + democ_dummy +
