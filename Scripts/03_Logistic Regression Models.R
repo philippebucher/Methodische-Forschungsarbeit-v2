@@ -505,6 +505,15 @@ stargazer(Eck_fit2_2004, Eck_fit2_2019, Eck_fit3_2004, Eck_fit3_2019, Eck_fit4_2
           column.labels = c("M2 2004", "M2 2019", "M3 2004", "M3 2019",
                             "M4 2004", "M4 2019", "M5 2004", "M5 2019"))
 
+#HTML für Word erstellen
+stargazer(Eck_fit2_2004, Eck_fit2_2019, Eck_fit3_2004, Eck_fit3_2019, Eck_fit4_2004, Eck_fit4_2019, 
+          Eck_fit5_2004, Eck_fit5_2019, type = "html", dep.var.labels = "War",
+          title = "Tabelle 2: Replikation von Eck 2009. Konfliktintensität und ethnische Mobilisierung 1946-2019",
+          digits = 2, out = "Tabelle2.html", model.names = T, style = "apsr",
+          column.labels = c("M2 2004", "M2 2019", "M3 2004", "M3 2019",
+                            "M4 2004", "M4 2019", "M5 2004", "M5 2019"))
+
+
 # Schritt 3: Replikation Tabelle 1 & 3 mit logarithmisches Modell und 2019 Daten ----------------
 
 #Zusätzlich zur Replikation mit denselben Variablen fitte ich hier die Modelle nochmals mit Variablen,
@@ -545,6 +554,13 @@ stargazer(fit2, fit3, fit4, fit5, fit6,
           type = "text", dep.var.labels = "War",
           title = "Tabelle 3: Risiko der Konfliktintensivierung 1946-2019",
           digits = 2, out = "models_philippe.txt", model.names = T)
+
+#Jetzt noch HTML Output für Word Dokument
+stargazer(fit2, fit3, fit4, fit5, fit6, 
+          type = "html", dep.var.labels = "War",
+          title = "Tabelle 3: Risiko der Konfliktintensivierung 1946-2019",
+          digits = 2, out = "Tabelle3.html", model.names = T, style = "apsr",
+          column.labels = c("Modell 2", "Modell 3", "Modell 4", "Modell 5", "Modell 6"))
 
 # Interpretation der eigenen Modelle aus Tabelle 1 & 3 mit 2019 Daten ----------------------------
 
@@ -698,10 +714,18 @@ fit12 <- glm(war ~ recruitment + ethfrac + lag_gdp_growth + ln_lag_pop_tot + dem
 summary(fit12)
 
 #Regressionstabelle mit den erweiterten Modellspezifikationen (andere Operationalisierung)
-stargazer(fit6, fit7, fit8, fit9, fit10, fit11, fit12,
+stargazer(fit5, fit7, fit8, fit9, fit10, fit11, fit12,
           type = "text", dep.var.labels = "War",
           title = "Tabelle 1: Risiko der Konfliktintensivierung 1946-2019",
           digits = 2, out = "models_philippe3.txt", model.names = T)
+
+#Jetzt noch mit HTML für Word Dokument
+stargazer(fit5, fit7, fit8, fit9, fit10, fit11, fit12,
+          type = "html", dep.var.labels = "War",
+          title = "Tabelle 1: Risiko der Konfliktintensivierung 1946-2019",
+          digits = 2, out = "Tabelle4.html", model.names = T, style = "apsr",
+          column.labels = c("Modell 5", "Modell 7", "Modell 8", "Modell 9", "Modell 10",
+                            "Modell 11", "Modell 12"))
 
 # Interpretation der erweiterten Modelle -----------------------
 
